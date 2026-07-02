@@ -1,6 +1,9 @@
 // app/api/line-webhook/route.ts
 // LINE Webhook endpoint — verify signature → ดึง FAQ → เรียก Gemini → reply
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from "next/server";
 import { messagingApi, validateSignature, webhook } from "@line/bot-sdk";
 import { getFaq } from "@/lib/sheet";
