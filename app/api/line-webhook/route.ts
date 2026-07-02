@@ -3,16 +3,15 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import * as crypto from "crypto";
-import { Client, WebhookEvent, MessageEvent, TextMessage } from "@line/bot-sdk";
+import { messagingApi, WebhookEvent, MessageEvent, TextMessage } from "@line/bot-sdk";
 import { getFaq } from "@/lib/sheet";
 import { askGemini } from "@/lib/gemini";
 
 const DEFAULT_REPLY = "เดี๋ยวให้เจ้าหน้าที่ติดต่อกลับนะคะ";
 
 // LINE client — ใช้สำหรับ reply เท่านั้น
-const lineClient = new Client({
+const lineClient = new messagingApi.MessagingApiClient({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN ?? "",
-  channelSecret: process.env.LINE_CHANNEL_SECRET ?? "",
 });
 
 /**
