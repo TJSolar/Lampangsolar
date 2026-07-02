@@ -49,6 +49,8 @@ async function handleEvent(event: webhook.Event): Promise<void> {
   if (msgEvent.message.type !== "text") return;
 
   const replyToken = msgEvent.replyToken;
+  if (!replyToken) return; // กรณี replyToken หมดอายุหรือไม่มี
+
   const userMessage = (msgEvent.message as webhook.TextMessageContent).text;
 
   console.log(`[webhook] user: ${userMessage}`);
