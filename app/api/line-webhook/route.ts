@@ -11,10 +11,33 @@ import { askGemini } from "@/lib/gemini";
 
 const DEFAULT_REPLY = "เดี๋ยวให้เจ้าหน้าที่ติดต่อกลับนะคะ";
 
-// LINE client สำหรับส่ง reply
+// LINE client สำหรับส่ง reply และ push
 const lineClient = new messagingApi.MessagingApiClient({
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN ?? "",
 });
+
+// แจ้ง admin เมื่อบอทตอบไม่ได้
+async function notifyAdmin(userMessage: string): Promise<void> {
+  const adminId = process.env.LINE_ADMIN_USER_ID;
+  if (!adminId) {
+    console.warn("[notify] LINE_ADMIN_USER_ID not set");
+    return;
+  }
+  try {
+    await lineClient.pushMessage({
+      to: adminId,
+      messages: [
+        {
+          type: "text",
+          text: `แจ้งเตือน: มีลูกค้าถามคำถามที่บอทตอบไม่ได้\n\nคำถาม: "${userMessage}"\n\nกรุณาติดต่อกลับลูกค้าด้วยนะคะ`,
+        },
+      ],
+    });
+    console.log("[notify] admin notified");
+  } catch (err) {
+    console.error("[notify] push failed:", err);
+  }
+}
 
 // LINE webhook ส่ง POST เสมอ
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -52,10 +75,13 @@ async function handleEvent(event: webhook.Event): Promise<void> {
   if (msgEvent.message.type !== "text") return;
 
   const replyToken = msgEvent.replyToken;
-  if (!replyToken) return; // กรณี replyToken หมดอายุหรือไม่มี
+  if (!replyToken) return;
+
+  // log userId เพื่อช่วยหา LINE_ADMIN_USER_ID ครั้งแรก
+  const userId = (msgEvent.source as webhook.UserSource)?.userId ?? "unknown";
+  console.log(`[webhook] userId: ${userId}`);
 
   const userMessage = (msgEvent.message as webhook.TextMessageContent).text;
-
   console.log(`[webhook] user: ${userMessage}`);
 
   // 5. ดึง FAQ (จาก cache หรือ fetch ใหม่)
@@ -64,7 +90,12 @@ async function handleEvent(event: webhook.Event): Promise<void> {
   // 6. เรียก Gemini
   const replyText = await askGemini(userMessage, faq);
 
-  // 7. ส่ง reply กลับ LINE
+  // 7. ถ้าบอทตอบไม่ได้ → แจ้ง admin (fire and forget)
+  if (replyText === DEFAULT_REPLY) {
+    notifyAdmin(userMessage);
+  }
+
+  // 8. ส่ง reply กลับ LINE
   try {
     await lineClient.replyMessage({
       replyToken,
@@ -72,7 +103,6 @@ async function handleEvent(event: webhook.Event): Promise<void> {
     });
     console.log(`[webhook] replied: ${replyText}`);
   } catch (err) {
-    // log แต่ไม่ throw — กัน LINE retry loop
     console.error("[webhook] reply failed:", err);
   }
 }
