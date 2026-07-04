@@ -39,10 +39,11 @@ ${faqText}
  */
 export async function askGemini(
   userMessage: string,
-  faq: FaqRow[]
+  faq: FaqRow[],
+  extraContext?: string // สำหรับ member mode (ราคา B2B/B2C)
 ): Promise<string> {
   const faqText = faqToText(faq);
-  const systemPrompt = buildSystemPrompt(faqText);
+  const systemPrompt = extraContext ?? buildSystemPrompt(faqText);
 
   try {
     const response = await ai.models.generateContent({
